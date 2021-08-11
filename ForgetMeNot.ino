@@ -5,12 +5,14 @@ bool firstPuzzle = false;
 enum answerStates {INERT, CORRECT, WRONG, RESOLVE};
 byte answerState = INERT;
 
+byte answerDisplayState = INERT;
+
 byte centerFace = 0;
 
-//PACKET ARRANGEMENT: puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, showTime, darkTime
+//PACKET ARRANGEMENT: puzzleType, puzzlePalette, puzzleDifficulty, isAnswer, showTime, darkTime, currentLevel, face
 uint16_t showTime[6] = {5000, 5000, 5000, 5000, 5000, 5000};
 uint16_t darkTime[6] = {2000, 2000, 2000, 2000, 2000, 2000};
-byte puzzlePacket[6] = {0, 0, 0, 0, 0, 0};
+byte puzzlePacket[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 byte currentPuzzleLevel = 0;
 Timer puzzleTimer;
@@ -142,7 +144,7 @@ void setupLoop() {
 
 Timer datagramTimer;
 #define DATAGRAM_TIMEOUT 250
-byte puzzleInfo[6] = {0, 0, 0, 0, 0, 0};
+byte puzzleInfo[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 byte stageOneData = 0;
 byte stageTwoData = 0;
 byte answerFace = 0;
@@ -180,6 +182,8 @@ void centerLoop() {
       //who needs a datagram again?
       FOREACH_FACE(f) {
         if (whoPlaying[f] == false) {
+          puzzlePacket[6] = currentPuzzleLevel;//lets them know which level this is
+          puzzlePacket[7] = f;//lets them know which face they are on
           if (f == answerFace) {
             puzzlePacket[3] = 1;
             sendDatagramOnFace( &puzzlePacket, sizeof(puzzlePacket), f);
@@ -198,6 +202,7 @@ void centerLoop() {
 
     if (buttonDoubleClicked()) {//here we reveal the correct answer and move forward
       answerState = CORRECT;
+      answerDisplayState = CORRECT;
       answerTimer.set(2000);   //set answer timer for display
       gameState = CENTER;
     }
@@ -232,6 +237,9 @@ void generatePuzzle() {
   //answerFace = 0;//DEBUG MODE - ALWAYS THE SAME ANSWER FACE
 
   FOREACH_FACE(f) {
+    //all packets need to be updated with current score and their face
+    puzzlePacket[6] = currentPuzzleLevel;//lets them know which level this is
+    puzzlePacket[7] = f;//lets them know which face they are on
     if (f == answerFace) {
       puzzlePacket[3] = 1;  // isAnswer = true
       sendDatagramOnFace( &puzzlePacket, sizeof(puzzlePacket), f);
@@ -248,11 +256,13 @@ void pieceLoop() {
     bool datagramReceived = false;
 
     if (isDatagramReadyOnFace(centerFace)) {//is there a packet?
-      if (getDatagramLengthOnFace(centerFace) == 6) {//is it the right length?
+      if (getDatagramLengthOnFace(centerFace) == 8) {//is it the right length?
         byte *data = (byte *) getDatagramOnFace(centerFace);//grab the data
         markDatagramReadOnFace(centerFace);
-        FOREACH_FACE(f) {
-          puzzleInfo[f] = data[f];
+
+        //dump all of our puzzle data into puzzleInfo
+        for (byte i = 0; i < 8; i++) {
+          puzzleInfo[i] = data[i];
         }
 
         datagramReceived = true;
@@ -284,8 +294,10 @@ void pieceLoop() {
 
       if (isCorrect) {
         answerState = CORRECT;
+        answerDisplayState = CORRECT;
       } else {
         answerState = WRONG;
+        answerDisplayState = WRONG;
       }
       answerTimer.set(2000);   //set answer timer for display
       gameState = WAITING;
@@ -354,6 +366,7 @@ void answerLoop() {
         byte neighborAnswer = getAnswerState(getLastValueReceivedOnFace(f));
         if (neighborAnswer == CORRECT || neighborAnswer == WRONG) {
           answerState = neighborAnswer;
+          answerDisplayState = neighborAnswer;
           answerTimer.set(2000);
 
           if (gameState == PLAYING_PIECE) {
@@ -372,7 +385,7 @@ void answerLoop() {
         }
       }
     }
-  } else if (answerState == CORRECT || answerState == WRONG) {//just wait to go to RESOLVE
+  } else if (answerState == CORRECT) {//just wait to go to RESOLVE
     if (gameState == PLAYING_PIECE) {
       gameState = WAITING;
     } else if (gameState == PLAYING_PUZZLE) {
@@ -392,6 +405,22 @@ void answerLoop() {
     if (canResolve) {
       answerState = RESOLVE;
     }
+  } else if (answerState == WRONG) {
+    //listen for clicks to go to RESOLVE
+    if (buttonSingleClicked()) {
+      answerState = RESOLVE;
+    }
+
+    //or listen for RESOLVE to go to RESOLVE
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        byte neighborAnswer = getAnswerState(getLastValueReceivedOnFace(f));
+        if (neighborAnswer == RESOLVE) {
+          answerState = RESOLVE;
+        }
+      }
+    }
+
   } else if (answerState == RESOLVE) {//wait to go to INERT
     if (gameState == PLAYING_PIECE) {
       gameState = WAITING;
@@ -437,9 +466,9 @@ void centerDisplay() {
   switch (gameState) {
     case CENTER:
       if (!answerTimer.isExpired()) {
-        if (answerState == CORRECT) {
+        if (answerDisplayState == CORRECT) {
           setColor(GREEN);
-        } else if (answerState == WRONG) {
+        } else if (answerDisplayState == WRONG) {
           setColor(RED);
         }
       } else {
@@ -470,9 +499,9 @@ void pieceDisplay() {
     //setColor(OFF);
     //setColorOnFace(GREEN, centerFace);
     if (!answerTimer.isExpired()) {
-      if (answerState == CORRECT) {
+      if (answerDisplayState == CORRECT) {
         setColor(GREEN);
-      } else if (answerState == WRONG) {
+      } else if (answerDisplayState == WRONG) {
         setColor(RED);
       }
     } else {
