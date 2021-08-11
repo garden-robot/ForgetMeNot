@@ -6,6 +6,7 @@ enum answerStates {INERT, CORRECT, WRONG, RESOLVE};
 byte answerState = INERT;
 
 byte answerDisplayState = INERT;
+bool isScoreboard = false;
 
 byte centerFace = 0;
 
@@ -295,12 +296,15 @@ void pieceLoop() {
       if (isCorrect) {
         answerState = CORRECT;
         answerDisplayState = CORRECT;
+        answerTimer.set(2000);   //set answer timer for display
+        gameState = WAITING;
       } else {
         answerState = WRONG;
         answerDisplayState = WRONG;
+        gameState = SETUP;
+        isScoreboard = true;
       }
-      answerTimer.set(2000);   //set answer timer for display
-      gameState = WAITING;
+
     }
   }
 
@@ -364,7 +368,7 @@ void answerLoop() {
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
         byte neighborAnswer = getAnswerState(getLastValueReceivedOnFace(f));
-        if (neighborAnswer == CORRECT || neighborAnswer == WRONG) {
+        if (neighborAnswer == CORRECT) {
           answerState = neighborAnswer;
           answerDisplayState = neighborAnswer;
           answerTimer.set(2000);
@@ -373,24 +377,36 @@ void answerLoop() {
             gameState = WAITING;
           } else if (gameState == PLAYING_PUZZLE) {
             gameState = CENTER;
-            //determine score incrementing
-            if (neighborAnswer == CORRECT) {
-              //increment the score!
-              currentPuzzleLevel++;
-            } else {
-              currentPuzzleLevel = 0;
-            }
+            currentPuzzleLevel++;
+            //            if (neighborAnswer == CORRECT) {
+            //              //increment the score!
+            //              currentPuzzleLevel++;
+            //            } else {
+            //              currentPuzzleLevel = 0;
+            //            }
 
           }
+        } else if (neighborAnswer == WRONG) {
+          answerState = neighborAnswer;
+          gameState = SETUP;
+          isScoreboard = true;
+          currentPuzzleLevel = 0;
         }
       }
     }
   } else if (answerState == CORRECT || answerState == WRONG) {//just wait to go to RESOLVE
-    if (gameState == PLAYING_PIECE) {
-      gameState = WAITING;
-    } else if (gameState == PLAYING_PUZZLE) {
-      gameState = CENTER;
+
+    if (answerState == CORRECT) {
+      if (gameState == PLAYING_PIECE) {
+        gameState = WAITING;
+      } else if (gameState == PLAYING_PUZZLE) {
+        gameState = CENTER;
+      }
+    } else {
+      gameState = SETUP;
     }
+
+
 
     bool canResolve = true;
     FOREACH_FACE(f) {
@@ -406,10 +422,15 @@ void answerLoop() {
       answerState = RESOLVE;
     }
   } else if (answerState == RESOLVE) {//wait to go to INERT
-    if (gameState == PLAYING_PIECE) {
-      gameState = WAITING;
-    } else if (gameState == PLAYING_PUZZLE) {
-      gameState = CENTER;
+
+    if (answerState == CORRECT) {
+      if (gameState == PLAYING_PIECE) {
+        gameState = WAITING;
+      } else if (gameState == PLAYING_PUZZLE) {
+        gameState = CENTER;
+      }
+    } else {
+      gameState = SETUP;
     }
 
     bool canInert = true;
@@ -442,6 +463,12 @@ void setupDisplay() {
     setColorOnFace(dim(WHITE, bloomBri), random(5));
   } else {
     setColor(makeColorHSB(GREEN_HUE, 255, 100));
+  }
+
+  if (isScoreboard) {
+    setColorOnFace(MAGENTA, 0);
+    setColorOnFace(MAGENTA, 0);
+    setColorOnFace(MAGENTA, 0);
   }
 }
 
