@@ -385,7 +385,7 @@ void answerLoop() {
         }
       }
     }
-  } else if (answerState == CORRECT) {//just wait to go to RESOLVE
+  } else if (answerState == CORRECT || answerState == WRONG) {//just wait to go to RESOLVE
     if (gameState == PLAYING_PIECE) {
       gameState = WAITING;
     } else if (gameState == PLAYING_PUZZLE) {
@@ -405,22 +405,6 @@ void answerLoop() {
     if (canResolve) {
       answerState = RESOLVE;
     }
-  } else if (answerState == WRONG) {
-    //listen for clicks to go to RESOLVE
-    if (buttonSingleClicked()) {
-      answerState = RESOLVE;
-    }
-
-    //or listen for RESOLVE to go to RESOLVE
-    FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f)) {
-        byte neighborAnswer = getAnswerState(getLastValueReceivedOnFace(f));
-        if (neighborAnswer == RESOLVE) {
-          answerState = RESOLVE;
-        }
-      }
-    }
-
   } else if (answerState == RESOLVE) {//wait to go to INERT
     if (gameState == PLAYING_PIECE) {
       gameState = WAITING;
