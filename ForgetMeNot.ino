@@ -12,7 +12,7 @@ Timer pipCounter;
 Timer roundTimer;
 Timer scoreboardTimer;
 #define SCORE_DURATION 100000
-byte petalDelay[6] = {10, 15, 20,25, 30, 35};
+byte petalDelay[6] = {10, 10, 10, 10, 10, 10};
 byte scoreRotation[18];
 
 enum answerStates {INERT, CORRECT, WRONG, RESOLVE, VICTORY};
@@ -315,7 +315,9 @@ void pieceLoop() {
       } else {
         answerState = WRONG;
         isScoreboard = true;
+       
         scoreboardTimer.set(SCORE_DURATION);
+         roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
 
       }
       answerTimer.set(2000);   //set answer timer for display
@@ -398,6 +400,7 @@ void answerLoop() {
           gameState = SETUP;
           isScoreboard = true;
           scoreboardTimer.set(SCORE_DURATION);
+          roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
 
           currentPuzzleLevel = 0;
         } else if (neighborAnswer == VICTORY) {
@@ -405,6 +408,7 @@ void answerLoop() {
           gameState = SETUP;
           isScoreboard = true;
           scoreboardTimer.set(SCORE_DURATION);
+           roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
 
           currentPuzzleLevel = 0;
         }
@@ -520,28 +524,19 @@ Color scoreboardColour(byte rounds) { //changes colour depending on round we are
   else if (rounds == 3) {
     return YELLOW;
   }
-  else if (rounds == 4) {
-    return GREEN;
-  }
   else {
-    return WHITE; //debug
+    return GREEN;
   }
 }
 
 void scoreBoardRounds() {
-  byte totalRounds = 2 ; //currentLevel / 18;
+ // byte totalRounds = 2 ; //currentLevel / 18; for later
   byte petalID = puzzleInfo[5];
-  byte roundCounter = 1;
+
 
   uint16_t timeSinceScoreDisplay = SCORE_DURATION - scoreboardTimer.getRemaining() ; //time since scoreboard has been displayed
-  word delta = millis();
+  word roundCycle = millis() - timeSinceScoreDisplay; //round cycle (?)
 
-
-  if (delta > 3000) {
-    delta = 3000;
-
-
-  }
 
   if (puzzleInfo[4] == MAX_LEVEL) { //oh, this is a VICTORY scoreboard
     setColor(dim(YELLOW, scoreboardTimer.getRemaining() / 10));
@@ -556,40 +551,25 @@ void scoreBoardRounds() {
 
         if (isValueReceivedOnFaceExpired(f)) { // draw outer faces
           Color roundColour;
-          //dont be red if it's not my time
-          //pattern from 1-6 that will light up when time has come
-          //petal ID * 500 ms = myStartTime
+        
 
-          uint16_t startTime = petalID * petalDelay[f] * 10 ;
-          uint16_t endTime = startTime + timeSinceScoreDisplay;
+          uint16_t startTime = petalID * petalDelay[(f + 5) % 6] * 10 ;
 
-          if (delta > startTime) {
+          if (!roundTimer.isExpired()) { //if round hasnt ended
             if (startTime < timeSinceScoreDisplay) {
-              setColorOnFace(scoreboardColour(roundCounter), f);
+              setColorOnFace(scoreboardColour(roundCounter), f); //be a colour- it's my time
             }
             else {
-              setColorOnFace(OFF, f);
-            }
-          }
-
-          if (delta < endTime) {
-            if (startTime < timeSinceScoreDisplay) {
-              setColorOnFace(scoreboardColour(2), f);
-
-            }
-            else {
-              setColorOnFace(OFF, f);
+              setColorOnFace(OFF, f); //don't be a colour- not my time yet
             }
           }
 
 
 
-          //              if (delta < endTime) { //if end
-          //            roundColour = scoreboardColour(roundCounter);
-          //          }
-          //          if ( delta > startTime) {
-          //              roundCounter++;
-          //          }
+          if (roundTimer.isExpired()) { //if round has ended, reset timer and change colour
+            roundCounter++;
+            roundTimer.set(roundCycle);
+          }
 
 
 
