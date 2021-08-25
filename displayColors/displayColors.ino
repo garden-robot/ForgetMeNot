@@ -38,12 +38,22 @@ byte difficultyArray[60] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2
 
 //byte petalHues[4] = {131, 159, 180, 223};//light blue, dark blue, violet, pink
 
+//new proposed colors
+
+//#define LIGHTPINK makeColorRGB(220,140,20)
+//#define SALMON makeColorRGB(255,100,75)
+//#define PINK makeColorRGB(255,0,255)
+//#define MAUVE makeColorRGB(180, 250, 90)
+//#define INDIGO makeColorRGB(140, 200, 10) 
+//#define PERIWINKLE makeColorRGB(170, 140, 90) 
+
+//levelled colors
 #define LIGHTPINK makeColorRGB(255,200,255)
-#define SALMON makeColorRGB(255,50,0)
+#define SALMON makeColorRGB(255,100,75)
 #define PINK makeColorRGB(255,0,255)
 #define MAUVE makeColorRGB(150,50,255)
 #define INDIGO makeColorRGB(50,100,255)
-#define PERIWINKLE makeColorRGB(0,150,255)
+#define PERIWINKLE makeColorRGB(0,250,255)
 
 Color primaryColors[6] = {LIGHTPINK, SALMON, PINK, MAUVE, INDIGO, PERIWINKLE};
 

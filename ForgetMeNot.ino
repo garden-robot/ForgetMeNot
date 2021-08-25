@@ -3,16 +3,21 @@ byte gameState = SETUP;
 bool firstPuzzle = false;
 
 Color scoreColor;
+
+byte score;
 byte levelCounter;
 byte roundCounter = 1;
+byte pipCounter;
 
-Timer pipCounter;
-#define PIP_DELAY 100
+Timer pipTimer;
+#define PIP_DURATION 5000
+Timer pipIncrementTimer;
+#define PIP_STEP_DURATION 100
 
 Timer roundTimer;
 Timer scoreboardTimer;
-#define SCORE_DURATION 100000
-byte petalDelay[6] = {10, 10, 10, 10, 10, 10};
+#define SCORE_DURATION 10000
+byte petalDelay[6] = {10, 15, 20, 25, 30, 35};
 byte scoreRotation[18];
 
 enum answerStates {INERT, CORRECT, WRONG, RESOLVE, VICTORY};
@@ -39,11 +44,11 @@ byte difficultyArray[60] = {1, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 1, 1, 2
 //byte petalHues[4] = {131, 159, 180, 223};//light blue, dark blue, violet, pink
 
 #define LIGHTPINK makeColorRGB(255,200,255)
-#define SALMON makeColorRGB(255,50,0)
+#define SALMON makeColorRGB(255,100,75)
 #define PINK makeColorRGB(255,0,255)
-#define MAUVE makeColorRGB(150,50,255)
-#define INDIGO makeColorRGB(50,100,255)
-#define PERIWINKLE makeColorRGB(0,150,255)
+#define MAUVE makeColorRGB(170, 83, 255)
+#define INDIGO makeColorRGB(97, 17, 231)
+#define PERIWINKLE makeColorRGB(10, 255, 212)
 
 Color primaryColors[6] = {LIGHTPINK, SALMON, PINK, MAUVE, INDIGO, PERIWINKLE};
 
@@ -315,9 +320,9 @@ void pieceLoop() {
       } else {
         answerState = WRONG;
         isScoreboard = true;
-       
         scoreboardTimer.set(SCORE_DURATION);
-         roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
+        score = currentPuzzleLevel;
+        roundTimer.set(SCORE_DURATION / 4); //relation to scoreboard timer
 
       }
       answerTimer.set(2000);   //set answer timer for display
@@ -400,7 +405,7 @@ void answerLoop() {
           gameState = SETUP;
           isScoreboard = true;
           scoreboardTimer.set(SCORE_DURATION);
-          roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
+          score = currentPuzzleLevel;
 
           currentPuzzleLevel = 0;
         } else if (neighborAnswer == VICTORY) {
@@ -408,7 +413,7 @@ void answerLoop() {
           gameState = SETUP;
           isScoreboard = true;
           scoreboardTimer.set(SCORE_DURATION);
-           roundTimer.set(millis() - (SCORE_DURATION - scoreboardTimer.getRemaining()));
+          score = currentPuzzleLevel;
 
           currentPuzzleLevel = 0;
         }
@@ -524,19 +529,27 @@ Color scoreboardColour(byte rounds) { //changes colour depending on round we are
   else if (rounds == 3) {
     return YELLOW;
   }
-  else {
+  else if (rounds == 4) {
     return GREEN;
+  }
+  else {
+    return WHITE; //debug
   }
 }
 
 void scoreBoardRounds() {
- // byte totalRounds = 2 ; //currentLevel / 18; for later
+
   byte petalID = puzzleInfo[5];
-
-
+  score = 57;
   uint16_t timeSinceScoreDisplay = SCORE_DURATION - scoreboardTimer.getRemaining() ; //time since scoreboard has been displayed
-  word roundCycle = millis() - timeSinceScoreDisplay; //round cycle (?)
 
+  if ( pipIncrementTimer.isExpired() ) {
+
+    pipCounter = ( pipCounter + 1 ) % 6;  // keep index cycling from 0 to 5
+
+    pipIncrementTimer.set( PIP_STEP_DURATION );  // set the timer to expire in STEP_DURATION milliseconds
+
+  }
 
   if (puzzleInfo[4] == MAX_LEVEL) { //oh, this is a VICTORY scoreboard
     setColor(dim(YELLOW, scoreboardTimer.getRemaining() / 10));
@@ -550,27 +563,71 @@ void scoreBoardRounds() {
       FOREACH_FACE(f) {
 
         if (isValueReceivedOnFaceExpired(f)) { // draw outer faces
-          Color roundColour;
-        
+          Color roundColour = scoreboardColour(roundCounter);
+          uint16_t startTime = petalID * petalDelay[f] * 10 ;
 
-          uint16_t startTime = petalID * petalDelay[(f + 5) % 6] * 10 ;
+          if (startTime < timeSinceScoreDisplay) {
+            byte hue = map(timeSinceScoreDisplay, 0, SCORE_DURATION, 0, 255);
+            if (score < 19 && score > 0) {
 
-          if (!roundTimer.isExpired()) { //if round hasnt ended
-            if (startTime < timeSinceScoreDisplay) {
-              setColorOnFace(scoreboardColour(roundCounter), f); //be a colour- it's my time
+              if (hue > 0) { // RED
+                hue = 0;
+              }
+              setColorOnFace(makeColorHSB(constrain(hue, 0, 0), 255, 255), f);
+              pipTimer.set(PIP_DURATION);
+
             }
-            else {
-              setColorOnFace(OFF, f); //don't be a colour- not my time yet
+            else if (score > 18 && score < 37) { //ORANGE
+
+
+              setColorOnFace(makeColorHSB(constrain(hue, 0, 25), 255, 255), f);
+              pipTimer.set(PIP_DURATION);
             }
+            else if (score > 36 && score < 55) { // YELLOW
+
+              setColorOnFace(makeColorHSB(constrain(hue, 0, 50), 255, 255), f);
+              pipTimer.set(PIP_DURATION);
+            }
+            else if (score > 54) { // GREEN
+
+
+              setColorOnFace(makeColorHSB(constrain(hue, 0, 75), 255, 255), f);
+              pipTimer.set(PIP_DURATION);
+            }
+          }
+          else {
+            setColorOnFace(OFF, f);
           }
 
 
 
-          if (roundTimer.isExpired()) { //if round has ended, reset timer and change colour
-            roundCounter++;
-            roundTimer.set(roundCycle);
-          }
 
+          //          Color roundColour;
+          //          //dont be red if it's not my time
+          //          //pattern from 1-6 that will light up when time has come
+          //          //petal ID * 500 ms = myStartTime
+          //
+          //          uint16_t startTime = petalID * petalDelay[f] * 10 ;
+          //          uint16_t endTime = startTime + timeSinceScoreDisplay;
+          //
+          //          if (delta > startTime) {
+          //            if (startTime < timeSinceScoreDisplay) {
+          //              setColorOnFace(scoreboardColour(roundCounter), f);
+          //            }
+          //            else {
+          //              setColorOnFace(OFF, f);
+          //            }
+          //          }
+          //
+          //          if (delta < endTime) {
+          //            if (startTime < timeSinceScoreDisplay) {
+          //              setColorOnFace(scoreboardColour(2), f);
+          //
+          //            }
+          //            else {
+          //              setColorOnFace(OFF, f);
+          //            }
+          //          }
 
 
 
@@ -588,10 +645,22 @@ void scoreBoardRounds() {
         }
       }
 
-    }
+      if (!pipTimer.isExpired()) {
+        uint16_t timeSincePipDisplay = PIP_DURATION - pipTimer.getRemaining() ; //time since pip has been displayed
+        FOREACH_FACE(f) {
+    
 
+          if (isValueReceivedOnFaceExpired(f)) { // draw outer faces
+            setColorOnFace(WHITE, pipCounter); // display WHITE on our current index
+          }
+        }
+
+      }
+
+    }
   }
 }
+
 
 
 void centerDisplay() {
