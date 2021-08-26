@@ -2,19 +2,15 @@ enum gameStates {SETUP, CENTER, SENDING, WAITING, PLAYING_PUZZLE, PLAYING_PIECE,
 byte gameState = SETUP;
 bool firstPuzzle = false;
 
-Color scoreColor;
-byte roundScore = 3;  //currentPuzzleLevel / 18
-byte score = 45;
+
+byte roundScore = 3;  //currentPuzzleLevel / 18 
+byte score = 45; //currentPuzzleLevel 
 byte pip = 9;  //currentPuzzleLevel % 18
-byte pipCounter;
+byte colorPipCounter; //0
+byte roundCounter = 1; 
+bool startCount; //considers pre-round loading
 
-
-byte levelCounter;
-byte roundCounter = 1;
-
-bool startCount;
-
-Timer pipTimer;
+Timer colorPipTimer;
 #define PIP_DURATION 5000
 Timer pipIncrementTimer;
 #define PIP_STEP_DURATION 100
@@ -79,11 +75,11 @@ enum puzzleType {COLOR_PETALS, LOCATION_PETALS, DUO_PETALS, ROTATION_PETALS};
 
 enum puzzlePallette  {primary, pink, blue};
 
-// beginner: pick from two colours
-// easy: pick from three colours
-// medium: pick from four colours
-// hard: pick from five colours
-// extrahard: pick from 6 colours --- probably not
+// beginner: pick from two colors
+// easy: pick from three colors
+// medium: pick from four colors
+// hard: pick from five colors
+// extrahard: pick from 6 colors --- probably not
 enum puzzleDifficulty {beginner, easy, medium, hard, extrahard};
 
 
@@ -500,9 +496,8 @@ void setupDisplay() {
   }
 
   if (isScoreboard) {
-    byte rounds = currentPuzzleLevel / 18 ;
-    byte totalRounds = 4;
-    pipRounds();
+
+    colorPipRounds();
     if (scoreboardTimer.isExpired()) {
 
       scoreboardDisplay();
@@ -529,26 +524,7 @@ void setupDisplay() {
 
 
 
-Color scoreboardColour(byte rounds) { //changes colour depending on round we are in
-  if (rounds == 1) {
-    return RED;
-  }
-  else if (rounds == 2) {
-    return ORANGE;
-  }
-  else if (rounds == 3) {
-    return YELLOW;
-  }
-  else if (rounds == 4) {
-    return GREEN;
-  }
-  else {
-    return WHITE; //debug
-  }
-}
-
-void pipRounds() {
-
+void colorPipRounds() {
 
   byte petalID = puzzleInfo[5];
   score = 45;
@@ -571,50 +547,46 @@ void pipRounds() {
           if (startTime < timeSinceScoreDisplay) {
             if ((roundCounter - 1) != roundScore) {
               if (startCount == true) {
-                if (roundCounter == 1) {
+                if (roundCounter == 1) { //round 1
                   setColorOnFace(RED, f);
                 }
-                else if (roundCounter == 2) {
+                else if (roundCounter == 2) { // round 2
                   setColorOnFace(ORANGE, f);
                 }
-                else if (roundCounter == 3) {
+                else if (roundCounter == 3) { //round 3
                   setColorOnFace(YELLOW, f);
                 }
                 else {
-                  setColorOnFace(GREEN, f);
+                  setColorOnFace(GREEN, f); //round 4 
                 }
               }
             }
+            
             else {
 
 
               if ((roundCounter - 1) == roundScore) {
-                if (pipCounter != pip) {
+                if (colorPipCounter != pip) {
                   setColorOnFace(GREEN, f);
-                  pipCounter ++;
+                  colorPipCounter ++;
                 }
               }
               else {
-               break;
+               break; //testing
               }
             }
 
-            if (pipTimer.isExpired() && roundCounter == 1) {
+            if (colorPipTimer.isExpired() && roundCounter == 1) { //first time loading in
               setColorOnFace(RED, f);
-              startCount = true;
+              startCount = true; //now we start the count
             }
-            //   if (score < 19 && score > 0) { //RED
-
-
-
-            // }
-
+        
           }
           else {
             setColorOnFace(OFF, f);
 
           }
-          if (pipCounter == pip && roundCounter == roundScore) {
+          if (colorPipCounter == pip && roundCounter == roundScore) {
             break;
           }
 
@@ -647,19 +619,17 @@ void scoreboardDisplay() {
 
 
     if (isValueReceivedOnFaceExpired(f)) {
-      if (roundCounter > 5) {
-        roundCounter == 5 ;
-      }
+
       uint16_t startTime = petalID * petalDelay[(f)] * 10 ; // Color start time
 
-      if (pipTimer.isExpired() && roundCounter < 6) {
-        pipTimer.set(2000);
+      if (colorPipTimer.isExpired() && roundCounter - 1 != roundScore) { // if the round counter is not at the score
+        colorPipTimer.set(2000);
         roundCounter ++;
       }
 
-      if (pipTimer.getRemaining() > startTime) {
+      if (colorPipTimer.getRemaining() > startTime) {
         if (roundCounter == 1) {
-          setColorOnFace(RED, f);
+          setColorOnFace(RED, f); //pre round (loading up for first time)
         }
         else if (roundCounter == 2) { // Round 1
           setColorOnFace(RED, f);
@@ -673,14 +643,13 @@ void scoreboardDisplay() {
         else if (roundCounter == 5){ //round 4
           setColorOnFace(GREEN, f);
         }
-      
-
+   
       } //>startTime end
 
-
-
     } //outer faces end
-
+   if(roundCounter - 1 == roundScore){ // has met the total round
+        setColorOnFace(GREEN, f); //do something/ testing
+      }
 
   }
 }
